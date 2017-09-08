@@ -2293,7 +2293,7 @@ namespace System.Linq.Expressions.Interpreter
                         if (field != null)
                         {
                             _instructions.EmitLoadField(field);
-                            if (!field.IsLiteral && !field.IsInitOnly)
+                            if (!field.IsLiteral)
                             {
                                 return new FieldByRefUpdater(memberTemp, field, index);
                             }

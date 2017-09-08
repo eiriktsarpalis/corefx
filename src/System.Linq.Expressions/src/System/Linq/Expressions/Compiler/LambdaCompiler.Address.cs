@@ -150,7 +150,7 @@ namespace System.Linq.Expressions.Compiler
                 // that it is illegal to attempt to write to an init-only field,
                 // the same way that it is illegal to write to a read-only property.
                 // The same goes for literal fields.
-                if (!field.IsInitOnly)
+                if (!field.IsLiteral)
                 {
                     _ilg.EmitFieldAddress(field);
                     return;

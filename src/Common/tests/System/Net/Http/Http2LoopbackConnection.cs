@@ -19,7 +19,7 @@ namespace System.Net.Test.Common
     {
         private Socket _connectionSocket;
         private Stream _connectionStream;
-        private bool _ignoreSettingsAck;
+        private int _pendingIgnoredSettingsAcks;
         private bool _ignoreWindowUpdates;
         public static TimeSpan Timeout => Http2LoopbackServer.Timeout;
         private int _lastStreamId;
@@ -145,9 +145,9 @@ namespace System.Net.Test.Common
                 throw new Exception("Connection stream closed while attempting to read frame body.");
             }
 
-            if (_ignoreSettingsAck && header.Type == FrameType.Settings && header.Flags == FrameFlags.Ack)
+            if (_pendingIgnoredSettingsAcks > 0 && header.Type == FrameType.Settings && header.Flags == FrameFlags.Ack)
             {
-                _ignoreSettingsAck = false;
+                Interlocked.Decrement(ref _pendingIgnoredSettingsAcks);
                 return await ReadFrameAsync(cancellationToken).ConfigureAwait(false);
             }
 
@@ -185,7 +185,7 @@ namespace System.Net.Test.Common
             Stream oldStream = _connectionStream;
             _connectionSocket = null;
             _connectionStream = null;
-            _ignoreSettingsAck = false;
+            _pendingIgnoredSettingsAcks = 0;
 
             return (oldSocket, oldStream);
         }
@@ -196,8 +196,7 @@ namespace System.Net.Test.Common
             // To simplify frame processing, just record that we are expecting one,
             // and then filter it out in ReadFrameAsync above.
 
-            Assert.False(_ignoreSettingsAck);
-            _ignoreSettingsAck = true;
+            Interlocked.Increment(ref _pendingIgnoredSettingsAcks);
         }
 
         public void IgnoreWindowUpdates()
@@ -231,7 +230,7 @@ namespace System.Net.Test.Common
             _connectionSocket = null;
             _connectionStream = null;
 
-            _ignoreSettingsAck = false;
+            _pendingIgnoredSettingsAcks = 0;
             _ignoreWindowUpdates = false;
         }
 

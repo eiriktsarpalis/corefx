@@ -215,6 +215,30 @@ namespace HttpStress
                             throw new Exception($"Unexpected values for header {reqHeader.Key}. Expected {FmtValues(reqHeader.Value)} but got {FmtValues(values)}");
                         }
                     }
+
+                    if (res.TrailingHeaders.Count() > 0)
+                    {
+                        List<string> missing = new List<string>();
+                        // Validate trailing headers are being echoed
+                        foreach (KeyValuePair<string, IEnumerable<string>> reqHeader in req.Headers)
+                        {
+                            if (!res.TrailingHeaders.TryGetValues(reqHeader.Key + "-Trailer", out IEnumerable<string> tValues))
+                            {
+                                missing.Add(reqHeader.Key + "-Trailer");
+                                // throw new Exception($"Expected trailing header name {reqHeader.Key}-Trailer missing.");
+                            }
+                            else if (!reqHeader.Value.SequenceEqual(tValues))
+                            {
+                                string FmtValues(IEnumerable<string> values) => string.Join(", ", values.Select(x => $"\"{x}\""));
+                                throw new Exception($"Unexpected values for trailing header {reqHeader.Key}-Trailer. Expected {FmtValues(reqHeader.Value)} but got {FmtValues(tValues)}");
+                            }
+                        }
+
+                        if (missing.Count > 0)
+                        {
+                            throw new Exception($"missing headers {string.Join(", ", missing)} out of a total of {req.Headers.Count()} headers.");
+                        }
+                    }
                 }),
 
                 ("GET Parameters",

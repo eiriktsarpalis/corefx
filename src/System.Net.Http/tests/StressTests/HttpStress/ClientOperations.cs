@@ -143,23 +143,23 @@ namespace HttpStress
 
         public void PopulateWithRandomHeaders(HttpRequestHeaders headers)
         {
-            int headerCount = _random.Next(MaxRequestHeaderCount);
-            int totalSize = 0;
-
-            for (int i = 0; i < headerCount; i++)
+            for (int i = 0; i < 5; i++)
             {
-                string name = $"header-{i}";
-                string CreateHeaderValue() => HttpUtility.UrlEncode(GetRandomString(1, 30, alphaNumericOnly: false));
-                string[] values = Enumerable.Range(0, _random.Next(1, 6)).Select(_ => CreateHeaderValue()).ToArray();
-                totalSize += name.Length + values.Select(v => v.Length + 2).Sum();
+                headers.Add($"header-{i}", Enumerable.Range(0, 5).Select(MkHeaderValue));
                 
-                if (totalSize > MaxRequestHeaderTotalSize) 
-                {
-                    break;
-                }
-
-                headers.Add(name, values);
+                string MkHeaderValue(int j) => HttpUtility.UrlEncode(new String('+', GetHeaderValueSize(j)));
+                int GetHeaderValueSize(int j) => GetRandomBoolean() ? 16 : 17;
             }
+        }
+
+        public static bool IsValidHeaderValue(IEnumerable<string> values)
+        {
+            foreach(var value in values)
+            {
+                if(!HttpUtility.UrlDecode(value).All(c => c == '+')) return false;
+            }
+
+            return true;
         }
 
         // Generates a random expected response content length and adds it to the request headers
@@ -217,49 +217,14 @@ namespace HttpStress
 
                     using HttpResponseMessage res = await ctx.SendAsync(req);
 
+                    var response = await res.Content.ReadAsStringAsync();
+
+                    if (res.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        throw new Exception(response);
+                    }
+
                     ValidateStatusCode(res);
-
-                    await res.Content.ReadAsStringAsync();
-
-                    bool isValidChecksum = ValidateServerChecksum(res.Headers, expectedChecksum);
-                    string GetFailureDetails() => isValidChecksum ? "server checksum matches client checksum" : "server checksum mismatch";
-
-                    // Validate that request headers are being echoed
-                    foreach (KeyValuePair<string, IEnumerable<string>> reqHeader in req.Headers)
-                    {
-                        if (!res.Headers.TryGetValues(reqHeader.Key, out IEnumerable<string> values))
-                        {
-                            throw new Exception($"Expected response header name {reqHeader.Key} missing. {GetFailureDetails()}");
-                        }
-                        else if (!reqHeader.Value.SequenceEqual(values))
-                        {
-                            string FmtValues(IEnumerable<string> values) => string.Join(", ", values.Select(x => $"\"{x}\""));
-                            throw new Exception($"Unexpected values for header {reqHeader.Key}. Expected {FmtValues(reqHeader.Value)} but got {FmtValues(values)}. {GetFailureDetails()}");
-                        }
-                    }
-
-                    // Validate trailing headers are being echoed
-                    if (res.TrailingHeaders.Count() > 0)
-                    {
-                        foreach (KeyValuePair<string, IEnumerable<string>> reqHeader in req.Headers)
-                        {
-                            if (!res.TrailingHeaders.TryGetValues(reqHeader.Key + "-trailer", out IEnumerable<string> values))
-                            {
-                                throw new Exception($"Expected trailing header name {reqHeader.Key}-trailer missing. {GetFailureDetails()}");
-                            }
-                            else if (!reqHeader.Value.SequenceEqual(values))
-                            {
-                                string FmtValues(IEnumerable<string> values) => string.Join(", ", values.Select(x => $"\"{x}\""));
-                                throw new Exception($"Unexpected values for trailing header {reqHeader.Key}-trailer. Expected {FmtValues(reqHeader.Value)} but got {FmtValues(values)}. {GetFailureDetails()}");
-                            }
-                        }
-                    }
-
-                    if (!isValidChecksum)
-                    {
-                        // Should not reach this block unless there's a bug in checksum validation logic. Do throw now
-                        throw new Exception("server checksum mismatch");
-                    }
                 }),
 
                 ("GET Parameters",

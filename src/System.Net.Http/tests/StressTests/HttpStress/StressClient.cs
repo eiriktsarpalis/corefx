@@ -135,7 +135,10 @@ namespace HttpStress
                     catch (Exception e)
                     {
                         _aggregator.RecordFailure(e, opIndex, stopwatch.Elapsed, taskNum: taskNum, iteration: i);
+                        // Environment.Exit(1); // uncomment to simplify frame capture
                     }
+
+                    // await Task.Delay(500);
                 }
 
                 // deterministic hashing copied from System.Runtime.Hashing

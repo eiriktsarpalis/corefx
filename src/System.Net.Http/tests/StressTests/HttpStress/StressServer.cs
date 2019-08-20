@@ -157,25 +157,15 @@ namespace HttpStress
                         .Select(h => (h.Key, new StringValues(h.Value.SelectMany(v => v.Split(',')).Select(x => x.Trim()).ToArray())))
                         .ToArray();
 
-                foreach((string name, StringValues values) in headersToEcho)
+                if(headersToEcho.Any(h => !RequestContext.IsValidHeaderValue(h.values)))
                 {
-                    context.Response.Headers.Add(name, values);
+                    string response = $"Server received bad headers:\n{string.Join("\n", headersToEcho.Select(x => $"{x.name}: {string.Join(", ", x.values)}"))}";
+                    context.Response.StatusCode = 400;
+                    await context.Response.WriteAsync(response);
+                    return;
                 }
-
-                // send back a checksum of all the echoed headers
-                uint checksum = ChecksumHelpers.ComputeHeaderChecksum(headersToEcho);
-                context.Response.Headers.Add("crc32", checksum.ToString());
 
                 await context.Response.WriteAsync("ok");
-
-                if (context.Response.SupportsTrailers())
-                {
-                    // just add variations of already echoed headers as trailers
-                    foreach ((string name, StringValues values) in headersToEcho)
-                    {
-                        context.Response.AppendTrailer(name + "-trailer", values);
-                    }
-                }
 
             });
             endpoints.MapGet("/variables", async context =>

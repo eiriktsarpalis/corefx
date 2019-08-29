@@ -69,6 +69,7 @@ namespace HttpStress
                     ko.Limits.MaxRequestLineSize = Math.Max(ko.Limits.MaxRequestLineSize, configuration.MaxRequestUriSize + 100);
                     ko.Limits.MaxRequestHeaderCount = Math.Max(ko.Limits.MaxRequestHeaderCount, configuration.MaxRequestHeaderCount);
                     ko.Limits.MaxRequestHeadersTotalSize = Math.Max(ko.Limits.MaxRequestHeadersTotalSize, configuration.MaxRequestHeaderTotalSize);
+                    ko.Limits.Http2.MaxStreamsPerConnection = 1;
 
                     IPAddress iPAddress = Dns.GetHostAddresses(configuration.ServerUri.Host).First();
 

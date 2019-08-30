@@ -577,7 +577,17 @@ namespace HttpStress
             if (headers.TryGetValues("crc32", out IEnumerable<string> values) &&
                 uint.TryParse(values.First(), out uint serverChecksum))
             {
-                return serverChecksum == expectedChecksum;
+                bool matchesChk = serverChecksum == expectedChecksum;
+                if (!matchesChk)
+                {
+                    lock (Console.Out)
+                    {
+                        Console.WriteLine("OMG found a corruption!");
+                        Environment.Exit(1);
+                    }
+                } 
+
+                return matchesChk;
             }
             else if (required)
             {

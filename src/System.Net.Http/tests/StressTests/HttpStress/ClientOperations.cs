@@ -40,6 +40,7 @@ namespace HttpStress
 
         public int TaskNum { get; }
         public bool IsCancellationRequested { get; private set; }
+        public bool? MatchesServerChecksum { get; set; }
 
         public Version HttpVersion => _config.HttpVersion;
         public int MaxRequestParameters => _config.MaxParameters;
@@ -221,7 +222,7 @@ namespace HttpStress
 
                     await res.Content.ReadAsStringAsync();
 
-                    bool isValidChecksum = ValidateServerChecksum(res.Headers, expectedChecksum);
+                    bool isValidChecksum = ValidateServerChecksum(ctx, res.Headers, expectedChecksum);
                     string GetFailureDetails() => isValidChecksum ? "server checksum matches client checksum" : "server checksum mismatch";
 
                     // Validate that request headers are being echoed
@@ -329,7 +330,7 @@ namespace HttpStress
                     using HttpResponseMessage m = await ctx.SendAsync(req);
 
                     ValidateStatusCode(m);
-                    string checksumMessage = ValidateServerChecksum(m.Headers, checksum) ? "server checksum matches client checksum" : "server checksum mismatch";
+                    string checksumMessage = ValidateServerChecksum(ctx, m.Headers, checksum) ? "server checksum matches client checksum" : "server checksum mismatch";
                     ValidateContent(content, await m.Content.ReadAsStringAsync(), checksumMessage);
                 }),
 
@@ -343,7 +344,7 @@ namespace HttpStress
                     using HttpResponseMessage m = await ctx.SendAsync(req);
 
                     ValidateStatusCode(m);
-                    string checksumMessage = ValidateServerChecksum(m.Headers, checksum) ? "server checksum matches client checksum" : "server checksum mismatch";
+                    string checksumMessage = ValidateServerChecksum(ctx, m.Headers, checksum) ? "server checksum matches client checksum" : "server checksum mismatch";
                     ValidateContent(formData.expected, await m.Content.ReadAsStringAsync(), checksumMessage);
                 }),
 
@@ -359,7 +360,7 @@ namespace HttpStress
                     ValidateStatusCode(m);
                     string response = await m.Content.ReadAsStringAsync();
 
-                    string checksumMessage = ValidateServerChecksum(m.TrailingHeaders, checksum, required: false) ? "server checksum matches client checksum" : "server checksum mismatch";
+                    string checksumMessage = ValidateServerChecksum(ctx, m.TrailingHeaders, checksum, required: false) ? "server checksum matches client checksum" : "server checksum mismatch";
                     ValidateContent(content, await m.Content.ReadAsStringAsync(), checksumMessage);
                 }),
 
@@ -377,7 +378,7 @@ namespace HttpStress
                     string response = await m.Content.ReadAsStringAsync();
 
                     // trailing headers not supported for all servers, so do not require checksums
-                    bool isValidChecksum = ValidateServerChecksum(m.TrailingHeaders, checksum, required: false);
+                    bool isValidChecksum = ValidateServerChecksum(ctx, m.TrailingHeaders, checksum, required: false);
 
                     ValidateContent(content, response, details: $"server checksum {(isValidChecksum ? "matches" : "does not match")} client value.");
 
@@ -413,7 +414,7 @@ namespace HttpStress
                     using HttpResponseMessage m = await ctx.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
 
                     ValidateStatusCode(m);
-                    string checksumMessage = ValidateServerChecksum(m.Headers, checksum) ? "server checksum matches client checksum" : "server checksum mismatch";
+                    string checksumMessage = ValidateServerChecksum(ctx, m.Headers, checksum) ? "server checksum matches client checksum" : "server checksum mismatch";
                     ValidateContent(content, await m.Content.ReadAsStringAsync(), checksumMessage);
                 }),
 
@@ -495,7 +496,7 @@ namespace HttpStress
                         .FirstOrDefault()
                         .GetValueOrDefault(Math.Min(actualContent.Length, expectedContent.Length));
 
-                throw new Exception($"Expected response content \"{expectedContent}\", got \"{actualContent}\".\n Diverging at index {divergentIndex}. {details}");
+                throw new Exception($"Content mismatch. Expected:\n\"{expectedContent}\"\nActual:\n\"{actualContent}\"\n Diverging at index {divergentIndex}. {details}");
             }
         }
 
@@ -571,12 +572,14 @@ namespace HttpStress
             return (sb.ToString(), multipartContent);
         }
 
-        private static bool ValidateServerChecksum(HttpResponseHeaders headers, ulong expectedChecksum, bool required = true)
+        private static bool ValidateServerChecksum(RequestContext ctx, HttpResponseHeaders headers, ulong expectedChecksum, bool required = true)
         {
             if (headers.TryGetValues("crc32", out IEnumerable<string> values) &&
                 uint.TryParse(values.First(), out uint serverChecksum))
             {
-                return serverChecksum == expectedChecksum;
+                var matches = serverChecksum == expectedChecksum;
+                ctx.MatchesServerChecksum = matches;
+                return matches;
             }
             else if (required)
             {

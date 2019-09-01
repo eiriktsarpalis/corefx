@@ -134,7 +134,7 @@ namespace HttpStress
                     }
                     catch (Exception e)
                     {
-                        _aggregator.RecordFailure(e, opIndex, stopwatch.Elapsed, taskNum: taskNum, iteration: i);
+                        _aggregator.RecordFailure(e, opIndex, stopwatch.Elapsed, taskNum: taskNum, iteration: i, matchesServerChecksum: requestContext.MatchesServerChecksum);
                     }
                 }
 
@@ -216,7 +216,7 @@ namespace HttpStress
                 _latencies.Add(elapsed.TotalMilliseconds);
             }
 
-            public void RecordFailure(Exception exn, int operationIndex, TimeSpan elapsed, int taskNum, long iteration)
+            public void RecordFailure(Exception exn, int operationIndex, TimeSpan elapsed, int taskNum, long iteration, bool? matchesServerChecksum)
             {
                 DateTime timestamp = DateTime.Now;
                 
@@ -277,6 +277,12 @@ namespace HttpStress
                             Console.ResetColor();
                             Console.WriteLine(exn);
                             Console.WriteLine();
+
+                            if (matchesServerChecksum == true)
+                            {
+                                Console.WriteLine("Data corruption error");
+                                Environment.Exit(1);
+                            }
                         }
                     }
                 }

@@ -278,9 +278,9 @@ namespace HttpStress
                             Console.WriteLine(exn);
                             Console.WriteLine();
 
-                            if (matchesServerChecksum == true)
+                            if (matchesServerChecksum == false)
                             {
-                                Console.WriteLine("Data corruption error");
+                                Console.WriteLine("Client side data corruption error");
                                 Environment.Exit(1);
                             }
                         }

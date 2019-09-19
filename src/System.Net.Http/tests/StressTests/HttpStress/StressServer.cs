@@ -26,6 +26,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace HttpStress
 {
@@ -115,6 +116,21 @@ namespace HttpStress
                 .Configure(app =>
                 {
                     app.UseRouting();
+                    app.Use(async (ctx,next) =>
+                    {
+                        const string errorMessage = "A frame of type DATA was received after stream";
+
+                        try
+                        {
+                            await next();
+                        }
+                        catch (Exception e) when (e.ToString().Contains(errorMessage))
+                        {
+                            Console.WriteLine($"Endpoint {ctx.Request.Path} gave error:\n{e}");
+                            Environment.Exit(1);
+                        }
+                    });
+
                     app.UseEndpoints(MapRoutes);
                 });
 

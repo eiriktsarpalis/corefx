@@ -126,7 +126,7 @@ namespace HttpStress
                         }
                         catch (Exception e) when (e.ToString().Contains(errorMessage))
                         {
-                            Console.WriteLine($"Endpoint {ctx.Request.Path} gave error:\n{e}");
+                            Console.WriteLine($"Endpoint {ctx.Request.Method} {ctx.Request.Path} gave error:\n{e}");
                             Environment.Exit(1);
                         }
                     });
